@@ -247,3 +247,4 @@
 * [Django 4.2.10](https://docs.djangoproject.com/en/4.2/)
 * [Django REST Framework  3.14.0](https://www.django-rest-framework.org/)
 * [Djoser  2.2.0](https://djoser.readthedocs.io/en/latest/getting_started.html)
+# hq-test
