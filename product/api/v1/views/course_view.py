@@ -50,7 +50,9 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         course = get_object_or_404(Course, id=self.kwargs.get('course_id'))
-        return course.groups.all()
+        return course.groups.all().prefetch_related(
+            'students_in_group__user'
+        )
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -71,10 +73,52 @@ class CourseViewSet(viewsets.ModelViewSet):
     )
     def pay(self, request, pk):
         """Покупка доступа к курсу (подписка на курс)."""
-
-        # TODO
-
+        user = request.user
+        course = self.get_object()
+        if Subscription.objects.filter(user=user, course=course).exists():
+            return Response(
+                data={'error': 'Вы уже подписаны на этот курс'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        balance = user.balance
+        if balance.amount < course.price:
+            return Response(
+                data={'error': 'Недостаточно средств на балансе'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        balance.amount -= course.price
+        balance.save()
+        subscription = Subscription.objects.create(user=user, course=course)
         return Response(
-            data=data,
+            data={
+                'message': 'Подписка оформлена',
+                'subscription': subscription.id
+            },
             status=status.HTTP_201_CREATED
         )
+
+
+class AvailableCoursesViewSet(viewsets.ModelViewSet):
+    """Список доступных для покупки курсов."""
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+
+    def get_queryset(self):
+        """Получение списка доступных курсов для пользователя."""
+        user = self.request.user
+        return Course.objects.filter(
+            is_available=True
+        ).exclude(
+            subscriptions__user=user
+        )
+
+
+class SubscriptionViewSet(viewsets.ModelViewSet):
+    """ViewSet для подписок."""
+    queryset = Subscription.objects.all()
+    serializer_class = SubscriptionSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        """Получение списка подписок для авторизованного пользователя."""
+        return Subscription.objects.filter(user=self.request.user)

@@ -1,9 +1,9 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Avg, Count
 from rest_framework import serializers
 
 from courses.models import Course, Group, Lesson
-from users.models import Subscription
+from users.models import CustomUser
+
 
 User = get_user_model()
 
@@ -35,10 +35,23 @@ class CreateLessonSerializer(serializers.ModelSerializer):
 
 
 class StudentSerializer(serializers.ModelSerializer):
-    """Студенты курса."""
+    """Сериализатор студента."""
+
+    email = serializers.CharField(
+        source='user.email',
+        read_only=True
+    )
+    first_name = serializers.CharField(
+        source='user.first_name',
+        read_only=True
+    )
+    last_name = serializers.CharField(
+        source='user.last_name',
+        read_only=True
+    )
 
     class Meta:
-        model = User
+        model = CustomUser
         fields = (
             'first_name',
             'last_name',
@@ -47,12 +60,23 @@ class StudentSerializer(serializers.ModelSerializer):
 
 
 class GroupSerializer(serializers.ModelSerializer):
-    """Список групп."""
-
-    # TODO Доп. задание
+    """Сериализатор группы."""
+    students = StudentSerializer(
+        many=True,
+        source='students_in_group'
+    )
+    course = serializers.SlugRelatedField(
+        slug_field='title',
+        read_only=True,
+    )
 
     class Meta:
         model = Group
+        fields = (
+            'title',
+            'course',
+            'students',
+        )
 
 
 class CreateGroupSerializer(serializers.ModelSerializer):
@@ -87,19 +111,28 @@ class CourseSerializer(serializers.ModelSerializer):
 
     def get_lessons_count(self, obj):
         """Количество уроков в курсе."""
-        # TODO Доп. задание
+        return obj.lessons.count()
 
     def get_students_count(self, obj):
         """Общее количество студентов на курсе."""
-        # TODO Доп. задание
+        return obj.subscriptions.count()
 
     def get_groups_filled_percent(self, obj):
-        """Процент заполнения групп, если в группе максимум 30 чел.."""
-        # TODO Доп. задание
+        """Процент заполнения групп."""
+        total_capacity = sum(
+            group.max_students
+            for group in obj.groups.all()
+        )
+        return round(
+            (obj.subscriptions.count() / total_capacity) * 100, 2
+        ) if total_capacity else 0
 
     def get_demand_course_percent(self, obj):
         """Процент приобретения курса."""
-        # TODO Доп. задание
+        total_users = CustomUser.objects.count()
+        return (
+            obj.subscriptions.count() / total_users
+            ) * 100 if total_users else 0
 
     class Meta:
         model = Course

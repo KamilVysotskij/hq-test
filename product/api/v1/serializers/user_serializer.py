@@ -9,18 +9,17 @@ User = get_user_model()
 
 class CustomUserSerializer(UserSerializer):
     """Сериализатор пользователей."""
-
     class Meta:
         model = User
+        fields = ('id', 'username', 'email', 'first_name', 'last_name')
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     """Сериализатор подписки."""
 
-    # TODO
+    user = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    course = serializers.SlugRelatedField(slug_field='title', read_only=True)
 
     class Meta:
         model = Subscription
-        fields = (
-            # TODO
-        )
+        fields = ('user', 'course')
